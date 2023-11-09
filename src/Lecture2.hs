@@ -51,8 +51,11 @@ zero, you can stop calculating product and return 0 immediately.
 >>> lazyProduct [4, 3, 7]
 84
 -}
+
 lazyProduct :: [Int] -> Int
-lazyProduct = error "TODO"
+lazyProduct [] = 1
+lazyProduct (0:_) = 0
+lazyProduct (x:xs) = x * lazyProduct xs
 
 {- | Implement a function that duplicates every element in the list.
 
@@ -62,7 +65,8 @@ lazyProduct = error "TODO"
 "ccaabb"
 -}
 duplicate :: [a] -> [a]
-duplicate = error "TODO"
+duplicate [] = []
+duplicate (x:xs) = [x] ++ [x] ++ duplicate xs
 
 {- | Implement function that takes index and a list and removes the
 element at the given position. Additionally, this function should also
@@ -74,7 +78,11 @@ return the removed element.
 >>> removeAt 10 [1 .. 5]
 (Nothing,[1,2,3,4,5])
 -}
-removeAt = error "TODO"
+removeAt :: Int -> [a] -> (Maybe a, [a])
+removeAt 0 (x:xs) = (Just x, xs)
+removeAt _ [] = (Nothing, [])
+removeAt n (x:xs) = let res = removeAt n xs 
+  in (fst res, x : snd res)
 
 {- | Write a function that takes a list of lists and returns only
 lists of even lengths.
@@ -85,7 +93,9 @@ lists of even lengths.
 ♫ NOTE: Use eta-reduction and function composition (the dot (.) operator)
   in this function.
 -}
-evenLists = error "TODO"
+
+evenLists :: [[a]] -> [[a]]
+evenLists = filter $ even . length
 
 {- | The @dropSpaces@ function takes a string containing a single word
 or number surrounded by spaces and removes all leading and trailing
@@ -101,7 +111,8 @@ spaces.
 
 🕯 HINT: look into Data.Char and Prelude modules for functions you may use.
 -}
-dropSpaces = error "TODO"
+dropSpaces :: String -> String
+dropSpaces = head . words
 
 {- |
 
@@ -164,7 +175,37 @@ data Knight = Knight
     , knightEndurance :: Int
     }
 
-dragonFight = error "TODO"
+data Treasure = Treasure 
+  { treasureGold :: Int
+  , treasureExtra :: String
+  }
+
+
+data DType = Red | Black | Green deriving (Eq, Show)
+
+data Dragon = Dragon 
+  { dragonType   :: DType
+  , dragonHealth :: Int
+  , dragonDamage :: Int
+  } deriving(Show)
+
+data Outcome = Run | Win | Loss deriving (Eq, Show)
+
+dragonFight :: Knight -> Dragon -> Outcome
+dragonFight (Knight _ _ 0) _ = Run -- even if the knight could have been killed in the dragon attack, they would've run first so check this
+dragonFight k d
+  | knightHealth k <= 0 = Loss
+  | dragonHealth d <= 0 = Win
+  | otherwise = let (dragon, knight) = attack 10 k d
+    in if dragonHealth dragon <= 0 then Win else dragonFight (knight {knightHealth = (knightHealth knight)- dragonDamage d}) d
+
+attack :: Int -> Knight -> Dragon -> (Dragon, Knight)
+attack 0 k d = (d, k) -- run out of hits
+attack _ (Knight x y 0) d = (d, (Knight x y 0)) -- run ouf of stamina
+attack hits knight dragon = attack (hits-1) knight {knightEndurance = knightEndurance knight - 1} (removeDragonHealth (knightAttack knight) dragon)
+
+removeDragonHealth :: Int -> Dragon -> Dragon
+removeDragonHealth a (Dragon x y z) = Dragon x (y-a) z
 
 ----------------------------------------------------------------------------
 -- Extra Challenges
@@ -185,7 +226,9 @@ False
 True
 -}
 isIncreasing :: [Int] -> Bool
-isIncreasing = error "TODO"
+isIncreasing [] = True
+isIncreasing [x] = True
+isIncreasing (x:y:xs) = if x < y then isIncreasing (y:xs) else False
 
 {- | Implement a function that takes two lists, sorted in the
 increasing order, and merges them into new list, also sorted in the
@@ -198,7 +241,11 @@ verify that.
 [1,2,3,4,7]
 -}
 merge :: [Int] -> [Int] -> [Int]
-merge = error "TODO"
+merge [] xs = xs
+merge xs [] = xs
+merge (x:xs) (y:ys) 
+  | x < y = x : merge xs (y:ys)
+  | otherwise = y : merge (x:xs) ys 
 
 {- | Implement the "Merge Sort" algorithm in Haskell. The @mergeSort@
 function takes a list of numbers and returns a new list containing the
@@ -214,8 +261,15 @@ The algorithm of merge sort is the following:
 >>> mergeSort [3, 1, 2]
 [1,2,3]
 -}
+half :: [a] -> ([a], [a])
+half [] = ([], []) 
+half xs = ((take l xs), (drop l xs)) where l = (length xs) `div` 2
+
 mergeSort :: [Int] -> [Int]
-mergeSort = error "TODO"
+mergeSort [] = []
+mergeSort [x] = [x]
+mergeSort xs = merge (mergeSort left) (mergeSort right)
+  where (left, right) = half xs  
 
 
 {- | Haskell is famous for being a superb language for implementing
@@ -267,8 +321,17 @@ data EvalError
 {- | Having all this set up, we can finally implement an evaluation function.
 It returns either a successful evaluation result or an error.
 -}
+
 eval :: Variables -> Expr -> Either EvalError Int
-eval = error "TODO"
+eval _ (Lit x) = Right x
+eval vars (Var s) = case lookup s vars of 
+  Just n -> Right n 
+  Nothing -> Left (VariableNotFound s)
+eval vars (Add x y) = case eval vars x of 
+  Left err -> Left err 
+  Right n -> case eval vars y of 
+    Left err -> Left err
+    Right m -> Right (m + n)
 
 {- | Compilers also perform optimizations! One of the most common
 optimizations is "Constant Folding". It performs arithmetic operations
@@ -291,5 +354,31 @@ x + 45 + y
 Write a function that takes and expression and performs "Constant
 Folding" optimization on the given expression.
 -}
+
 constantFolding :: Expr -> Expr
-constantFolding = error "TODO"
+constantFolding (Lit x) = Lit x
+constantFolding (Var s) = Var s
+constantFolding (Add a b) = 
+  case removeConstants (Add a b) of 
+    Nothing -> Lit (composeConstants (Add a b))
+    Just x -> if composeConstants (Add a b) /= 0 
+      then (Add (Lit (composeConstants (Add a b))) x) 
+      else x
+
+composeConstants :: Expr -> Int 
+composeConstants (Var s) = 0 
+composeConstants (Lit x) = x
+composeConstants (Add x y) = composeConstants x + composeConstants y
+
+removeConstants :: Expr -> Maybe Expr
+removeConstants (Var s) = Just (Var s)
+removeConstants (Lit x) = Nothing
+removeConstants (Add a b) = 
+  case removeConstants a of 
+    Nothing -> case removeConstants b of 
+      Nothing -> Nothing
+      Just y -> Just y
+    Just x -> case removeConstants b of 
+      Nothing -> Just x
+      Just y -> Just (Add x y)
+
