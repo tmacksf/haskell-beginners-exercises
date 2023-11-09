@@ -173,39 +173,46 @@ data Knight = Knight
     { knightHealth    :: Int
     , knightAttack    :: Int
     , knightEndurance :: Int
-    }
+    } deriving (Eq, Show)
 
-data Treasure = Treasure 
-  { treasureGold :: Int
-  , treasureExtra :: String
-  }
+data Chest a = Chest 
+  { gold  :: Int
+  , treasure :: Maybe a 
+  } deriving (Show, Eq)
 
+type Reward a = (Int, Int, Maybe a)
 
-data DType = Red | Black | Green deriving (Eq, Show)
+data DragonType = Red | Black | Green deriving (Eq, Show)
 
-data Dragon = Dragon 
-  { dragonType   :: DType
+data Dragon a = Dragon 
+  { dragonType   :: DragonType 
   , dragonHealth :: Int
   , dragonDamage :: Int
+  , dragonReward :: Chest a
   } deriving(Show)
 
-data Outcome = Run | Win | Loss deriving (Eq, Show)
+data Outcome a = Run | Win (Reward a) | Loss deriving (Eq, Show)
 
-dragonFight :: Knight -> Dragon -> Outcome
-dragonFight (Knight _ _ 0) _ = Run -- even if the knight could have been killed in the dragon attack, they would've run first so check this
-dragonFight k d
-  | knightHealth k <= 0 = Loss
-  | dragonHealth d <= 0 = Win
-  | otherwise = let (dragon, knight) = attack 10 k d
-    in if dragonHealth dragon <= 0 then Win else dragonFight (knight {knightHealth = (knightHealth knight)- dragonDamage d}) d
+generateReward :: Dragon a -> Reward a
+generateReward (Dragon Red _ _ (Chest g x)) = (100, g, x)
+generateReward (Dragon Black _ _ (Chest g x)) = (150, g, x)
+generateReward (Dragon Green _ _ (Chest g _)) = (250, g, Nothing)
 
-attack :: Int -> Knight -> Dragon -> (Dragon, Knight)
+attack :: Int -> Knight -> Dragon a -> (Dragon a, Knight)
 attack 0 k d = (d, k) -- run out of hits
 attack _ (Knight x y 0) d = (d, (Knight x y 0)) -- run ouf of stamina
 attack hits knight dragon = attack (hits-1) knight {knightEndurance = knightEndurance knight - 1} (removeDragonHealth (knightAttack knight) dragon)
 
-removeDragonHealth :: Int -> Dragon -> Dragon
-removeDragonHealth a (Dragon x y z) = Dragon x (y-a) z
+removeDragonHealth :: Int -> Dragon a -> Dragon a
+removeDragonHealth a (Dragon x y z t) = Dragon x (y-a) z t
+
+dragonFight :: Knight -> Dragon a -> Outcome a
+dragonFight (Knight _ _ 0) _ = Run -- even if the knight could have been killed in the dragon attack, they would've run first so check this
+dragonFight k d
+  | knightHealth k <= 0 = Loss
+  | dragonHealth d <= 0 = Win (generateReward d)
+  | otherwise = let (dragon, knight) = attack 10 k d
+    in if dragonHealth dragon <= 0 then Win (generateReward d) else dragonFight (knight {knightHealth = (knightHealth knight)- dragonDamage d}) d
 
 ----------------------------------------------------------------------------
 -- Extra Challenges
