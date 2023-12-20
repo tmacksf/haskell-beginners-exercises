@@ -134,8 +134,18 @@ errors. We will simply return an optional result here.
 🕯 HINT: Use the 'readMaybe' function from the 'Text.Read' module.
 -}
 
+splitComma :: String -> [String]
+splitComma [] = []
+splitComma s = x : splitComma (drop 1 y) where (x,y) = span (/= ',') s
+
+getRow :: [String] -> Maybe Row
+getRow [] = Nothing
+getRow (x:y:z:xs) = (readMaybe y :: Maybe TradeType) >>= \b -> (readMaybe z :: Maybe Int) >>= \c -> return (Row x b c)
+getRow (x:xs) = Just (Row "s" Buy 1)
+
 parseRow :: String -> Maybe Row
-parseRow = error "TODO"
+parseRow s = if ((length sc) /= 3) then Nothing else getRow sc
+  where sc = splitComma s
 
 {-
 We have almost all we need to calculate final stats in a simple and
@@ -157,7 +167,7 @@ string.
 If both strings have the same length, return the first one.
 -}
 instance Semigroup MaxLen where
-
+    MaxLen a <> MaxLen b = if length b > length a then MaxLen b else MaxLen a
 
 {-
 It's convenient to represent our stats as a data type that has
@@ -184,7 +194,10 @@ instance for the 'Stats' type itself.
 -}
 
 instance Semigroup Stats where
-
+    Stats stp sts saMax saMin ssMax ssMin sbMax sbMin sl <> 
+      Stats stp1 sts1 saMax1 saMin1 ssMax1 ssMin1 sbMax1 sbMin1 sl1 
+        = Stats (stp <> stp1) (sts <> sts1) (saMax <> saMax1) (saMin <> saMin1)
+          (ssMax <> ssMax1) (ssMin <> ssMin1) (sbMax <> sbMax1) (sbMin <> sbMin1) (sl <> sl1)
 
 {-
 The reason for having the 'Stats' data type is to be able to convert
