@@ -388,4 +388,3 @@ removeConstants (Add a b) =
     Just x -> case removeConstants b of 
       Nothing -> Just x
       Just y -> Just (Add x y)
-
