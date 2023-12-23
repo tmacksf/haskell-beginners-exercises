@@ -103,6 +103,7 @@ module Lecture4
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Semigroup (Max (..), Min (..), Semigroup (..), Sum (..))
 import Text.Read (readMaybe)
+import Data.Maybe (mapMaybe)
 
 {- In this exercise, instead of writing the entire program from
 scratch, you're offered to complete the missing parts.
@@ -211,9 +212,16 @@ row in the file.
    populate both sell max/min and buy max/min values. In that case,
    you can set the corresponding field to 'Nothing'.
 -}
+-- { rowProduct   :: String
+-- , rowTradeType :: TradeType
+-- , rowCost      :: Int
 
 rowToStats :: Row -> Stats
-rowToStats = error "TODO"
+rowToStats r 
+  | rowTradeType r == Buy = Stats 1 (Sum (-1 * c)) (Max c) (Min c)
+    Nothing Nothing (Just (Max c)) (Just (Min c)) (MaxLen $ rowProduct r)
+  | otherwise = Stats 1 (Sum c) (Max c) (Min c) (Just (Max c)) (Just (Min c)) Nothing Nothing (MaxLen $ rowProduct r)
+  where c = rowCost r
 
 {-
 Now, after we learned to convert a single row, we can convert a list of rows!
@@ -239,7 +247,8 @@ implement the next task.
 -}
 
 combineRows :: NonEmpty Row -> Stats
-combineRows = error "TODO"
+combineRows (x:|xs) = foldr1 (\x y -> x <> y) (map rowToStats (x:xs))
+
 
 {-
 After we've calculated stats for all rows, we can then pretty-print
@@ -248,9 +257,31 @@ our final result.
 If there's no value for a field (for example, there were not "Buy" products),
 you can return string "no value".
 -}
+    -- , statsTotalSum       :: Sum Int
+    -- , statsAbsoluteMax    :: Max Int
+    -- , statsAbsoluteMin    :: Min Int
+    -- , statsSellMax        :: Maybe (Max Int)
+    -- , statsSellMin        :: Maybe (Min Int)
+    -- , statsBuyMax         :: Maybe (Max Int)
+    -- , statsBuyMin         :: Maybe (Min Int)
+    -- , statsLongest        :: MaxLen
 
 displayStats :: Stats -> String
-displayStats = error "TODO"
+displayStats s = 
+  "Total Positions: " ++ show (getSum $ statsTotalPositions s) ++
+  ", Total Sum: " ++ show (getSum $ statsTotalSum s) ++ 
+  ", Abs Max: " ++ show (getMax $ statsAbsoluteMax s) ++ 
+  ", Abs Min: " ++ show (getMin $ statsAbsoluteMin s) ++ 
+  ", Sell Max: " ++ (test (statsSellMax s) getMax) ++
+  ", Sell Min: " ++ (test (statsSellMin s) getMin) ++ 
+  ", Buy Max: " ++ (test (statsBuyMax s) getMax) ++ 
+  ", Buy Min: " ++ (test (statsBuyMin s) getMin) ++ 
+  ", Longest: " ++ unMaxLen (statsLongest s) 
+
+
+test :: Show b => Maybe a -> (a -> b) -> String 
+test Nothing _ = "no value"
+test s fn = show $ fmap fn s 
 
 {-
 Now, we definitely have all the pieces in places! We can write a
@@ -270,7 +301,9 @@ the file doesn't have any products.
 -}
 
 calculateStats :: String -> String
-calculateStats = error "TODO"
+calculateStats [] = "Empty"
+calculateStats xs = if rows == [] then "Empty" else displayStats $ combineRows ((head rows):|(tail rows))
+  where rows = mapMaybe parseRow $ tail $ lines xs
 
 {- The only thing left is to write a function with side-effects that
 takes a path to a file, reads its content, calculates stats and prints
@@ -279,8 +312,8 @@ the result.
 Use functions 'readFile' and 'putStrLn' here.
 -}
 
-printProductStats :: FilePath -> IO ()
-printProductStats = error "TODO"
+printProductStats :: FilePath -> IO String 
+printProductStats fp = calculateStats <$> readFile fp
 
 {-
 Okay, I lied. This is not the last thing. Now, we need to wrap
@@ -295,8 +328,8 @@ CLI args:
 https://hackage.haskell.org/package/base-4.16.0.0/docs/System-Environment.html#v:getArgs
 -}
 
-main :: IO ()
-main = error "TODO"
+main :: IO String 
+main = printProductStats "input.txt"
 
 
 {-
